@@ -1,0 +1,33 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/db.sqlite3
+
+# Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+electron/node_modules/
+electron/dist/
+electron/release/
+*.log
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
