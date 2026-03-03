@@ -10,5 +10,5 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_pending_balance(self, obj):
-        from payments.models import StudentFeeMapping
-        return obj.fee_mappings.filter(is_paid=False).aggregate(Sum('amount'))['amount__sum'] or 0
+        from payments.models import Receipt
+        return obj.receipts.filter(payment_status__name='Unpaid').aggregate(Sum('amount'))['amount__sum'] or 0

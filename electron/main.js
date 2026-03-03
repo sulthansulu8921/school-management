@@ -27,9 +27,7 @@ function createWindow() {
 
 function startBackendAndLaunch() {
     const backendDir = path.join(__dirname, '../backend');
-    const venvPython = process.platform === 'win32'
-        ? path.join(backendDir, 'venv/Scripts/python.exe')
-        : path.join(backendDir, 'venv/bin/python');
+    const venvPython = path.join(backendDir, 'venv/bin/python');
 
     // Start Django
     djangoProcess = spawn(venvPython, ['manage.py', 'runserver', '127.0.0.1:8000'], { cwd: backendDir });

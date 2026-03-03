@@ -1,232 +1,53 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, User, Receipt, X, Menu } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAcademicYear } from '../context/AcademicYearContext';
-import logo from '../assets/logo.jpeg';
+import React from 'react';
+import { Search, Bell, ChevronDown } from 'lucide-react';
 
-const Header = ({ toggleSidebar }) => {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [results, setResults] = useState({ students: [], receipts: [] });
-    const [isSearching, setIsSearching] = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const { academicYear, setAcademicYear } = useAcademicYear();
-    const [showYearDropdown, setShowYearDropdown] = useState(false);
-
-    const searchRef = useRef(null);
-    const navigate = useNavigate();
-
-    // Handle clicks outside the search component
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (searchRef.current && !searchRef.current.contains(event.target)) {
-                setShowDropdown(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    // Fetch search results when query changes
-    useEffect(() => {
-        const fetchResults = async () => {
-            if (!searchQuery.trim()) {
-                setResults({ students: [], receipts: [] });
-                setIsSearching(false);
-                return;
-            }
-
-            setIsSearching(true);
-            try {
-                // Determine API base URL. Fallback to localhost if not set in env (handling electron/dev differences).
-                const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-                const [studentsRes, receiptsRes] = await Promise.all([
-                    axios.get(`${baseUrl}/api/students/?search=${searchQuery}&academic_year=${academicYear}`),
-                    axios.get(`${baseUrl}/api/payments/receipts/?search=${searchQuery}&academic_year=${academicYear}`)
-                ]);
-
-                setResults({
-                    students: studentsRes.data.results ? studentsRes.data.results.slice(0, 5) : studentsRes.data.slice(0, 5),
-                    receipts: receiptsRes.data.results ? receiptsRes.data.results.slice(0, 5) : receiptsRes.data.slice(0, 5)
-                });
-            } catch (error) {
-                console.error("Error fetching search results:", error);
-                // On error, just clear results
-                setResults({ students: [], receipts: [] });
-            } finally {
-                setIsSearching(false);
-            }
-        };
-
-        const timeoutId = setTimeout(() => {
-            fetchResults();
-        }, 300); // 300ms debounce
-
-        return () => clearTimeout(timeoutId);
-    }, [searchQuery]);
-
-    const handleClearSearch = () => {
-        setSearchQuery('');
-        setShowDropdown(false);
-    };
-
-    const handleResultClick = (path) => {
-        navigate(path);
-        handleClearSearch();
-    };
-
+const Header = () => {
     return (
-        <header className="h-16 sm:h-20 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10 no-print gap-4">
-            {/* Mobile Menu Toggle */}
-            <button
-                onClick={toggleSidebar}
-                className="lg:hidden p-2 hover:bg-gray-100 rounded-xl text-gray-600 transition-colors"
-            >
-                <Menu size={24} />
-            </button>
-
-            {/* Search Bar - Responsive width */}
-            <div className="relative flex-1 lg:max-w-md group" ref={searchRef}>
+        <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-10 no-print">
+            {/* Search Bar */}
+            <div className="relative w-96 group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
                 <input
                     type="text"
-                    value={searchQuery}
-                    onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setShowDropdown(true);
-                    }}
-                    onFocus={() => {
-                        if (searchQuery.trim() || results.students.length > 0 || results.receipts.length > 0) {
-                            setShowDropdown(true);
-                        }
-                    }}
                     placeholder="Search Student / Receipt..."
-                    className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-12 pr-10 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                    className="w-full bg-gray-50 border-none rounded-2xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition-all"
                 />
-                {searchQuery && (
-                    <button
-                        onClick={handleClearSearch}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                    >
-                        <X size={14} />
-                    </button>
-                )}
-
-                {/* Search Results Dropdown */}
-                {showDropdown && searchQuery.trim() && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                        {isSearching ? (
-                            <div className="p-4 text-center text-sm text-gray-500">Searching...</div>
-                        ) : results.students.length === 0 && results.receipts.length === 0 ? (
-                            <div className="p-4 text-center text-sm text-gray-500">No results found for "{searchQuery}"</div>
-                        ) : (
-                            <div className="max-h-96 overflow-y-auto">
-
-                                {/* Students Section */}
-                                {results.students.length > 0 && (
-                                    <div className="py-2">
-                                        <div className="px-4 py-1 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50">Students</div>
-                                        {results.students.map(student => (
-                                            <div
-                                                key={`student-${student.id}`}
-                                                onClick={() => handleResultClick('/students')}
-                                                className="px-4 py-3 hover:bg-blue-50 cursor-pointer flex items-center gap-3 transition-colors border-l-2 border-transparent hover:border-blue-500"
-                                            >
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
-                                                    <User size={14} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-sm font-semibold text-gray-800 truncate">{student.name}</div>
-                                                    <div className="text-xs text-gray-500 flex gap-2">
-                                                        <span>{student.admission_no}</span>
-                                                        <span className="text-gray-300">•</span>
-                                                        <span className="truncate">{student.student_class}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Receipts Section */}
-                                {results.receipts.length > 0 && (
-                                    <div className="py-2 border-t border-gray-100">
-                                        <div className="px-4 py-1 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50/50">Receipts</div>
-                                        {results.receipts.map(receipt => (
-                                            <div
-                                                key={`receipt-${receipt.id}`}
-                                                onClick={() => handleResultClick('/payments')}
-                                                className="px-4 py-3 hover:bg-green-50 cursor-pointer flex items-center gap-3 transition-colors border-l-2 border-transparent hover:border-green-500"
-                                            >
-                                                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 flex-shrink-0">
-                                                    <Receipt size={14} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-sm font-semibold text-gray-800 truncate">{receipt.receipt_no}</div>
-                                                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                                                        <span className="truncate max-w-[120px]">{receipt.student_name}</span>
-                                                        <span className="text-gray-300">•</span>
-                                                        <span className="font-medium text-green-600">₹{receipt.amount}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* Right Side Actions */}
             <div className="flex items-center gap-8">
                 {/* Academic Year Selector */}
-                <div className="relative">
-                    <div
-                        onClick={() => setShowYearDropdown(!showYearDropdown)}
-                        className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 cursor-pointer hover:bg-white transition-colors"
-                    >
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Academic Year:</span>
-                        <span className="text-sm font-black text-gray-800">{academicYear}</span>
-                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} />
-                    </div>
-                    {showYearDropdown && (
-                        <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                            {['2023-24', '2024-25', '2025-26'].map(year => (
-                                <div
-                                    key={year}
-                                    onClick={() => {
-                                        setAcademicYear(year);
-                                        setShowYearDropdown(false);
-                                    }}
-                                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${academicYear === year ? 'bg-blue-50 font-bold text-blue-600' : 'text-gray-700'}`}
-                                >
-                                    {year}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100 cursor-pointer hover:bg-white transition-colors">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Academic Year:</span>
+                    <span className="text-sm font-black text-gray-800">2024-25</span>
+                    <ChevronDown size={14} className="text-gray-400" />
                 </div>
 
+                {/* Notifications */}
+                <div className="relative cursor-pointer group">
+                    <div className="p-2.5 bg-gray-50 rounded-xl group-hover:bg-blue-50 transition-colors">
+                        <Bell size={20} className="text-gray-500 group-hover:text-blue-600" />
+                    </div>
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 border-2 border-white rounded-full text-[10px] text-white font-bold flex items-center justify-center">
+                        1
+                    </span>
+                </div>
 
-                {/* User Profile - Responsive */}
-                <div className="flex items-center gap-2 sm:gap-4 sm:pl-8 sm:border-l border-gray-100 cursor-pointer group">
-                    <div className="text-right hidden sm:flex flex-col items-end">
+                {/* User Profile */}
+                <div className="flex items-center gap-4 pl-8 border-l border-gray-100 cursor-pointer group">
+                    <div className="text-right flex flex-col items-end">
                         <span className="text-[10px] font-black uppercase text-gray-400 leading-none mb-0.5">Admin</span>
-                        <span className="text-sm font-bold text-gray-800 truncate max-w-[100px] lg:max-w-none">LOURDES MATA CENTRAL SCHOOL</span>
+                        <span className="text-sm font-bold text-gray-800">Sulthan</span>
                     </div>
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-md group-hover:shadow-lg transition-all border border-gray-100 relative">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md group-hover:shadow-lg transition-all border border-gray-100 relative">
                         <img
-                            src={logo}
-                            alt="School Logo"
-                            className="w-full h-full object-contain"
+                            src="https://ui-avatars.com/api/?name=Sulthan&background=0D8ABC&color=fff"
+                            alt="User Profile"
+                            className="w-full h-full object-cover"
                         />
-                        <div className="absolute bottom-1 right-1 w-2 sm:w-2.5 h-2 sm:h-2.5 bg-green-500 border-2 border-white rounded-full" />
+                        <div className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
                     </div>
-                    <ChevronDown size={14} className="text-gray-400 hidden sm:block" />
+                    <ChevronDown size={16} className="text-gray-400" />
                 </div>
             </div>
         </header>

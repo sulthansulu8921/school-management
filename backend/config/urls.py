@@ -16,14 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from core.views import BackupListCreateAPIView, BackupDownloadAPIView, SettingsView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/payments/', include('payments.urls')),
     path('api/reports/', include('reports.urls')),
-    path('api/backup/', BackupListCreateAPIView.as_view(), name='backup-list-create'),
-    path('api/backup/<int:pk>/download/', BackupDownloadAPIView.as_view(), name='backup-download'),
-    path('api/settings/', SettingsView.as_view(), name='settings'),
     path('api/', include('students.urls')),
 ]

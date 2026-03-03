@@ -5,7 +5,6 @@ import Header from './Header';
 
 const Layout = () => {
     const isAuthenticated = localStorage.getItem('auth');
-    const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
@@ -13,20 +12,14 @@ const Layout = () => {
 
     return (
         <div className="flex h-screen bg-[#f8fbff] overflow-hidden">
-            {/* Sidebar toggle for mobile backdrop */}
-            {sidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-30 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                />
-            )}
+            {/* Sidebar with higher z-index and shadow */}
+            <Sidebar />
 
-            <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-
+            {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-                <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+                <Header />
 
-                <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-8 scroll-smooth">
+                <main className="flex-1 overflow-y-auto px-8 py-8 scroll-smooth">
                     <div className="max-w-[1600px] mx-auto">
                         <Outlet />
                     </div>

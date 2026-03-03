@@ -1,33 +1,38 @@
 # Python
-backend/venv/
-backend/__pycache__/
-backend/*.py[cod]
-backend/*$py.class
-backend/.pytest_cache/
-backend/.coverage
-backend/htmlcov/
-backend/db.sqlite3
-
-# Node.js
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-electron/node_modules/
-electron/dist/
-electron/release/
-*.log
-
-# Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+db.sqlite3
 .env
 .venv
-env/
 venv/
-ENV/
+backend/db.sqlite3
 
-# OS/IDE
+# Node
+node_modules/
+frontend/node_modules/
+electron/node_modules/
+dist/
 .DS_Store
-Thumbs.db
+
+# IDEs
 .vscode/
 .idea/
-*.swp
-*.swo
