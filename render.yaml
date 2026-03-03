@@ -17,9 +17,8 @@ services:
         value: 4
 
   # Frontend Service
-  - type: web
+  - type: static
     name: school-manage-frontend
-    runtime: static
     buildCommand: npm install && npm run build
     publishPath: dist
     rootDir: frontend
