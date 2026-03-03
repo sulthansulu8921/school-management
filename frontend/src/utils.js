@@ -28,79 +28,82 @@ export const toWords = (num) => {
 /**
  * Generates a professional PDF receipt matching the reference image.
  */
-export const generateReceiptPDF = async (receipt, logoBase64) => {
-    // A5 Landscape: [width: 595.28, height: 419.53] in pt
+export const generateReceiptPDF = async (receipt, logoBase64, options = {}) => {
+    const { shouldSave = true, shouldOpen = true, format = 'a4', orientation = 'portrait' } = options;
+
+    // A4 Portrait: [width: 595.28, height: 841.89] in pt
     const doc = new jsPDF({
         unit: 'pt',
-        format: 'a5',
-        orientation: 'landscape'
+        format: format,
+        orientation: orientation
     });
 
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 35;
+    const margin = 40;
 
-    const TEXT_DARK = [20, 20, 20]; // Darker for printing
-    const LINE_COLOR = [200, 200, 200];
+    const TEXT_DARK = [20, 20, 20];
+    const LINE_COLOR = [180, 180, 180];
 
-    let y = 35;
+    let y = 50;
 
     // Logo (Top Left)
     if (logoBase64) {
-        doc.addImage(logoBase64, 'JPEG', margin + 5, y - 5, 45, 45);
+        doc.addImage(logoBase64, 'JPEG', margin, y - 10, 50, 50);
     }
 
     // School Header (Centered)
     doc.setTextColor(...TEXT_DARK);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('Lourdes Mata Central school', pageW / 2 + 30, y, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text('Lourdes Mata Central School', pageW / 2 + 30, y, { align: 'center' });
 
-    y += 12;
-    doc.setFontSize(8);
+    y += 18;
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('KOVILTHOTTAM, CHAVARN (PD) CBIC AFF 931047', pageW / 2 + 30, y, { align: 'center' });
+    doc.text('KOVILTHOTTAM, CHAVARA (PO) CBIC AFF 931047', pageW / 2 + 30, y, { align: 'center' });
 
-    y += 10;
+    y += 14;
     doc.text('PHONE 0476-2683401, 8281044713', pageW / 2 + 30, y, { align: 'center' });
 
-    y += 35;
-    doc.setFontSize(11);
+    y += 45;
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('FEE RECEIPT', pageW / 2, y, { align: 'center' });
     doc.setLineWidth(0.8);
     const titleW = doc.getTextWidth('FEE RECEIPT');
     doc.line(pageW / 2 - titleW / 2, y + 2, pageW / 2 + titleW / 2, y + 2);
 
-    y += 35;
+    y += 50;
     // Student Details
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Receipt No : ${receipt.receipt_no}`, margin + 5, y);
-    doc.text(`Date : ${receipt.date}`, pageW - margin - 5, y, { align: 'right' });
+    doc.text(`Receipt No : ${receipt.receipt_no}`, margin, y);
+    doc.text(`Date : ${receipt.date}`, pageW - margin, y, { align: 'right' });
 
-    y += 20;
-    doc.text(`Name : ${receipt.student_details?.name || '-'}`, margin + 5, y);
+    y += 25;
+    doc.text(`Name : ${receipt.student_details?.name || '-'}`, margin, y);
 
-    y += 20;
-    doc.text(`Admin No : ${receipt.student_details?.admission_no || '-'}`, margin + 5, y);
-    doc.text(`Class : ${receipt.student_details?.student_class || '-'}`, pageW - margin - 5, y, { align: 'right' });
+    y += 25;
+    doc.text(`Admin No : ${receipt.student_details?.admission_no || '-'}`, margin, y);
+    doc.text(`Class : ${receipt.student_details?.student_class || '-'}${receipt.student_details?.division || ''}`, pageW - margin, y, { align: 'right' });
+
+    y += 15;
+    doc.setDrawColor(...LINE_COLOR);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+
+    y += 25;
+    // Table Header
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PARTICULARS', margin + 10, y);
+    doc.text('AMOUNT (₹)', pageW - margin - 10, y, { align: 'right' });
 
     y += 12;
-    doc.setDrawColor(...LINE_COLOR);
     doc.line(margin, y, pageW - margin, y);
 
-    y += 20;
-    // Table Header
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PARTICULARS', margin + 15, y);
-    doc.text('AMOUNT (Rs.)', pageW - margin - 15, y, { align: 'right' });
-
-    y += 10;
-    doc.line(margin, y, pageW - margin, y);
-
-    y += 20;
+    y += 25;
     // Table Rows
     doc.setFont('helvetica', 'normal');
 
@@ -114,47 +117,52 @@ export const generateReceiptPDF = async (receipt, logoBase64) => {
 
     printItems.forEach(item => {
         const name = item.fee_category_name || item.fee_category_details?.name || '-';
-        doc.text(name, margin + 15, y);
-        doc.text(parseFloat(item.amount).toFixed(2), pageW - margin - 15, y, { align: 'right' });
-        y += 18;
+        const monthLabel = item.month ? ` (${item.month})` : '';
+        doc.text(`- ${name}${monthLabel}`, margin + 10, y);
+        doc.text(parseFloat(item.amount).toFixed(2), pageW - margin - 10, y, { align: 'right' });
+        y += 22;
     });
 
     // Ensure space for totals
-    y = Math.max(y, 280);
+    const totalY = Math.max(y + 20, 500);
 
-    doc.line(margin, y, pageW - margin, y);
+    doc.line(margin, totalY, pageW - margin, totalY);
 
-    y += 18;
+    y = totalY + 22;
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL', margin + 5, y);
-    doc.text(parseFloat(receipt.total_amount).toFixed(2), pageW - margin - 5, y, { align: 'right' });
+    doc.text('TOTAL', margin, y);
+    doc.text(parseFloat(receipt.total_amount).toFixed(2), pageW - margin, y, { align: 'right' });
 
-    y += 30;
+    y += 40;
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
     const amountWords = toWords(receipt.total_amount);
     doc.text(amountWords, pageW / 2, y, { align: 'center' });
 
-    y = pageH - 40;
+    y = 750; // Bottom position for signatures on A4
     // Signature Section
-    doc.setDrawColor(0);
+    doc.setDrawColor(100, 100, 100);
     doc.setLineWidth(0.5);
-    doc.line(margin + 10, y, margin + 130, y);
-    doc.line(pageW - margin - 130, y, pageW - margin - 10, y);
+    doc.line(margin, y, margin + 150, y);
+    doc.line(pageW - margin - 150, y, pageW - margin, y);
 
-    y += 14;
+    y += 18;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(9);
     doc.setTextColor(...TEXT_DARK);
-    doc.text('Received By', margin + 70, y, { align: 'center' });
-    doc.text('Authorized Signature', pageW - margin - 70, y, { align: 'center' });
+    doc.text('Received By', margin + 75, y, { align: 'center' });
+    doc.text('Authorized Signature', pageW - margin - 75, y, { align: 'center' });
 
-    // Open in a new tab for "Print Preview"
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    if (shouldOpen) {
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    }
 
-    // Also save it
-    doc.save(`Receipt_${receipt.receipt_no}.pdf`);
+    if (shouldSave) {
+        doc.save(`Receipt_${receipt.receipt_no}.pdf`);
+    }
+
+    return doc;
 };

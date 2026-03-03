@@ -176,24 +176,41 @@ const Payments = () => {
         } catch (e) { console.error('Error fetching unpaid fees', e); }
     };
 
-    const handleShare = async () => {
-        if (!lastCreatedReceipt) return;
-        const text = `School Receipt: ${lastCreatedReceipt.receipt_no}\nStudent: ${lastCreatedReceipt.student_details?.name}\nAmount: ₹${lastCreatedReceipt.total_amount}\nMonths: ${lastCreatedReceipt.month_summary}\nFee Types: ${lastCreatedReceipt.fee_type_summary}`;
+    const handleShare = async (receipt = lastCreatedReceipt) => {
+        if (!receipt) return;
 
-        if (navigator.share) {
-            try {
+        try {
+            // Generate PDF but don't open/save automatically
+            const doc = await generateReceiptPDF(receipt, schoolLogo, {
+                shouldSave: false,
+                shouldOpen: false
+            });
+
+            const blob = doc.output('blob');
+            const fileName = `Receipt_${receipt.receipt_no}.pdf`;
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
-                    title: 'Fee Receipt',
-                    text: text,
-                    url: window.location.href
+                    files: [file],
+                    title: 'School Fee Receipt',
+                    text: `Fee receipt for ${receipt.student_details?.name} (${receipt.receipt_no})`
                 });
-            } catch (err) {
-                console.log('Share failed', err);
+            } else {
+                // Fallback: Just open/save the PDF as we do for printing
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                alert('PDF generated and downloaded. You can now share it manually.');
             }
-        } else {
-            // Fallback: Copy to clipboard
-            navigator.clipboard.writeText(text);
-            alert('Receipt details copied to clipboard!');
+        } catch (err) {
+            console.error('Share failed', err);
+            alert('Sharing failed. Try printing the receipt instead.');
         }
     };
 
@@ -328,6 +345,9 @@ const Payments = () => {
                                             <div className="flex justify-end gap-2 text-center">
                                                 <button onClick={() => generateReceiptPDF(r, schoolLogo)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition" title="Print PDF">
                                                     <Printer size={16} />
+                                                </button>
+                                                <button onClick={() => handleShare(r)} className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition" title="Share PDF">
+                                                    <Share2 size={16} />
                                                 </button>
                                                 {r.is_edited && (
                                                     <button onClick={() => handleViewHistory(r)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="View History">
@@ -541,7 +561,7 @@ const Payments = () => {
                             <div className="space-y-3">
                                 <button onClick={() => generateReceiptPDF(lastCreatedReceipt, schoolLogo)} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition shadow-lg">
                                     <Printer size={18} />
-                                    Print Receipt (A5 Landscape)
+                                    Print Receipt (A4 Portrait)
                                 </button>
                                 <button onClick={handleShare} className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition shadow-lg">
                                     <Share2 size={18} />
