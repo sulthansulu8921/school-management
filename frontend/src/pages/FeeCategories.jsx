@@ -37,43 +37,43 @@ const FeeCategories = () => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-gray-900 tracking-tight">Fee Categories</h1>
-                    <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Manage School Fee Structures</p>
+                    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Fee Categories</h1>
+                    <p className="text-[10px] sm:text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Manage School Fee Structures</p>
                 </div>
-                <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-black text-sm uppercase tracking-wider">
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-black text-sm uppercase tracking-wider">
                     <Plus size={18} />
                     <span>Create Category</span>
                 </button>
             </div>
 
             {/* Quick Stats/Info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                        <Layers size={20} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="bg-white p-4 sm:p-6 rounded-xl sm:rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                        <Layers size={18} />
                     </div>
                     <div>
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Types</p>
-                        <p className="text-xl font-black text-gray-800">{categories.length}</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Types</p>
+                        <p className="text-lg sm:text-xl font-black text-gray-800">{categories.length}</p>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 border-l-4 border-l-green-500">
-                    <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
-                        <CheckCircle2 size={20} />
+                <div className="bg-white p-4 sm:p-6 rounded-xl sm:rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-4 border-l-4 border-l-green-500">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
+                        <CheckCircle2 size={18} />
                     </div>
                     <div>
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Active Status</p>
-                        <p className="text-xl font-black text-gray-800">Operational</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Status</p>
+                        <p className="text-lg sm:text-xl font-black text-gray-800">Operational</p>
                     </div>
                 </div>
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-[2rem] text-white shadow-xl shadow-blue-100">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-4 sm:p-6 rounded-xl sm:rounded-[2rem] text-white shadow-xl shadow-blue-100 sm:col-span-2 lg:col-span-1">
                     <div className="flex items-center gap-3">
-                        <Info size={18} className="text-blue-200" />
-                        <p className="text-xs font-bold uppercase tracking-widest">System Note</p>
+                        <Info size={16} className="text-blue-200" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest">System Note</p>
                     </div>
-                    <p className="text-[11px] mt-2 font-medium leading-relaxed opacity-90">
+                    <p className="text-[10px] sm:text-[11px] mt-2 font-medium leading-relaxed opacity-90">
                         Categories defined here will appear in the Receipt generation list for student payments.
                     </p>
                 </div>

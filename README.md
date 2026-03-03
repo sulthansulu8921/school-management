@@ -22,7 +22,7 @@ python manage.py migrate
 ```bash
 cd frontend
 npm install
-npm run build
+npm run build 
 ```
 
 ### 3. Run Application via Electron

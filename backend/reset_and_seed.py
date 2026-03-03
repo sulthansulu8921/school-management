@@ -40,138 +40,141 @@ def reset_and_seed():
 
     print("Seeding CCA Activities...")
     cca_list = []
-    for cca_name in ['Music', 'Dance', 'Karate', 'Robotics', 'Archery']:
-        cca, _ = CCAActivity.objects.get_or_create(name=cca_name)
+    cca_data = [
+        ('Music', 500),
+        ('Dance', 600),
+        ('Karate', 800),
+        ('Drawing', 400),
+        ('Yoga', 550),
+        ('Chess', 500),
+        ('Violin', 700),
+        ('Keyboard', 700),
+        ('Abacus', 600),
+        ('Skating', 750),
+        ('Football', 800)
+    ]
+    for name, fee in cca_data:
+        cca, _ = CCAActivity.objects.get_or_create(name=name, defaults={'monthly_fee': fee})
         cca_list.append(cca)
 
     print("Seeding Students and Fee Mappings...")
-    demo_students_data = [
-        {"name": "Aarav Sharma", "class": "5", "div": "A", "bus": "1", "bus_fee": 2500, "tuition_fee": 3500},
-        {"name": "Aditi Verma", "class": "3", "div": "B", "bus": "2", "bus_fee": 2200, "tuition_fee": 3200},
-        {"name": "Ishan Patel", "class": "8", "div": "C", "bus": "1", "bus_fee": 3000, "tuition_fee": 4500},
-        {"name": "Ananya Iyer", "class": "2", "div": "A", "bus": "3", "bus_fee": 2100, "tuition_fee": 3000},
-        {"name": "Vihaan Gupta", "class": "10", "div": "B", "bus": "4", "bus_fee": 3500, "tuition_fee": 5500},
-        {"name": "Saanvi Reddy", "class": "4", "div": "C", "bus": "5", "bus_fee": 2400, "tuition_fee": 3800},
-        {"name": "Arjun Malhotra", "class": "6", "div": "A", "bus": "2", "bus_fee": 2700, "tuition_fee": 4200},
-        {"name": "Kavya Nair", "class": "1", "div": "B", "bus": "3", "bus_fee": 2000, "tuition_fee": 2800},
-        {"name": "Reyansh Das", "class": "9", "div": "A", "bus": "1", "bus_fee": 3200, "tuition_fee": 4800},
-        {"name": "Diya Kapoor", "class": "7", "div": "C", "bus": "4", "bus_fee": 2800, "tuition_fee": 4000},
+    demo_names = [
+        "Aarav Sharma", "Aditi Verma", "Ishan Patel", "Ananya Iyer", "Vihaan Gupta",
+        "Saanvi Reddy", "Arjun Malhotra", "Kavya Nair", "Reyansh Das", "Diya Kapoor",
+        "Rahul Nair", "Priya Pillai", "Sneha Menon", "Gautam Iyer", "Meera Krishnan",
+        "Varun Sivakumar", "Maya Balakrishnan", "Karthik Rajan", "Anjali Murali", "Deepak George",
+        "Riya Chacko", "Nithin Scaria", "Tessa Joseph", "Mathew Varghese", "Sara Kurian",
+        "Manu Bhaskar", "Divya Sreekumar", "Achu Shaji", "Nimmy Thomas", "Jithu Jose",
+        "Amala Paul", "Unni Mukundan", "Mamta Mohandas", "Dulquer Salmaan", "Nivin Pauly",
+        "Fahadh Faasil", "Nazriya Nazim", "Parvathy Thiruvothu", "Tovino Thomas", "Prithviraj Sukumaran",
+        "Manju Warrier", "Shobhana", "Mohanlal", "Mammootty", "Jayaram", "Suresh Gopi",
+        "Dileep", "Kunchacko Boban", "Asif Ali", "Indrajith Sukumaran"
     ]
 
     months = ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"]
     academic_year = "2024-25"
 
     all_students = []
-    for i, data in enumerate(demo_students_data, 1):
+    for i, name in enumerate(demo_names, 1):
         admission_no = f"2024{100 + i}"
         phone = f"98765432{i:02d}"
+        student_class = str((i % 10) + 1) # Class 1 to 10
+        division = random.choice(['A', 'B'])
         
+        # Tuition fee based on class level
+        tuition_fee = 2000 + (int(student_class) * 300)
+        
+        # Bus or not
+        has_bus = random.choice([True, False])
+        bus_fee = 1500 if has_bus else 0
+        bus_no = str(random.randint(1, 10)) if has_bus else ""
+
         student = Student.objects.create(
             admission_no=admission_no,
-            name=data["name"],
-            student_class=data["class"],
-            division=data["div"],
+            name=name,
+            student_class=student_class,
+            division=division,
             phone_number=phone,
-            bus_number=data["bus"],
-            bus_fee=data["bus_fee"],
-            tuition_fee=data["tuition_fee"],
+            bus_number=bus_no,
+            bus_fee=bus_fee,
+            tuition_fee=tuition_fee,
             status='Active'
         )
         # Randomly assign CCAs
         student.cca_activities.set(random.sample(cca_list, random.randint(0, 2)))
         all_students.append(student)
 
-        # Create Fee Mappings for this student for last 4 months (April to July)
-        for month in months[:4]:
+        # Create Fee Mappings for this student for last 10 months (April to Jan)
+        for month in months[:10]:
             # Tuition Fee
-            StudentFeeMapping.objects.create(
+            StudentFeeMapping.objects.get_or_create(
                 student=student,
                 fee_category=fee_cats['Tuition'],
-                amount=student.tuition_fee,
                 month=month,
                 academic_year=academic_year,
-                is_paid=False
+                defaults={'amount': student.tuition_fee, 'is_paid': False}
             )
             # Bus Fee
             if student.bus_fee > 0:
-                StudentFeeMapping.objects.create(
+                StudentFeeMapping.objects.get_or_create(
                     student=student,
                     fee_category=fee_cats['Bus'],
-                    amount=student.bus_fee,
                     month=month,
                     academic_year=academic_year,
-                    is_paid=False
+                    defaults={'amount': student.bus_fee, 'is_paid': False}
                 )
 
-    print("Seeding some Paid Receipts for Dashboard Graphs...")
-    # Pay for April for all students
-    # And May for some
+    print("Seeding Paid Receipts for Dashboard Graphs...")
+    # Payment percentages for each month to make graphs look realistic
+    payment_probs = {
+        "April": 0.95, "May": 0.90, "June": 0.85, "July": 0.80, 
+        "August": 0.75, "September": 0.70, "October": 0.65, "November": 0.60,
+        "December": 0.55, "January": 0.50
+    }
     
-    # April payments
-    april_date = date.today().replace(month=4, day=15)
-    for student in all_students:
-        mappings_to_pay = StudentFeeMapping.objects.filter(student=student, month="April")
-        total_amount = sum(m.amount for m in mappings_to_pay)
+    for month_idx, month in enumerate(months[:10]):
+        # Calculate a date in that month
+        # April 2024 (idx 0), Jan 2025 (idx 9)
+        year = 2024 if month_idx < 9 else 2025
+        payment_month_num = (month_idx + 4) % 12
+        if payment_month_num == 0: payment_month_num = 12
         
-        receipt = Receipt.objects.create(
-            student=student,
-            total_amount=total_amount,
-            payment_status=paid_status,
-            academic_year=academic_year,
-            date=april_date
-        )
-
-        for mapping in mappings_to_pay:
-            ReceiptItem.objects.create(
-                receipt=receipt,
-                fee_category=mapping.fee_category,
-                amount=mapping.amount,
-                month=mapping.month
-            )
-            mapping.is_paid = True
-            mapping.save()
-            
-        # Update Collections
-        daily, _ = DailyCollection.objects.get_or_create(date=receipt.date)
-        daily.total_amount += total_amount
-        daily.save()
-
-        monthly, _ = MonthlyCollection.objects.get_or_create(month=receipt.date.month, year=receipt.date.year)
-        monthly.total_amount += total_amount
-        monthly.save()
-
-    # May payments for half students
-    may_date = date.today().replace(month=5, day=15)
-    for student in all_students[:5]:
-        mappings_to_pay = StudentFeeMapping.objects.filter(student=student, month="May")
-        total_amount = sum(m.amount for m in mappings_to_pay)
+        prob = payment_probs.get(month, 0.5)
         
-        receipt = Receipt.objects.create(
-            student=student,
-            total_amount=total_amount,
-            payment_status=paid_status,
-            academic_year=academic_year,
-            date=may_date
-        )
+        for student in all_students:
+            if random.random() < prob:
+                mappings_to_pay = StudentFeeMapping.objects.filter(student=student, month=month, is_paid=False)
+                if not mappings_to_pay.exists(): continue
+                
+                total_amount = sum(m.amount for m in mappings_to_pay)
+                payment_date = date(year, payment_month_num, random.randint(5, 25))
 
-        for mapping in mappings_to_pay:
-            ReceiptItem.objects.create(
-                receipt=receipt,
-                fee_category=mapping.fee_category,
-                amount=mapping.amount,
-                month=mapping.month
-            )
-            mapping.is_paid = True
-            mapping.save()
-            
-        # Update Collections
-        daily, _ = DailyCollection.objects.get_or_create(date=receipt.date)
-        daily.total_amount += total_amount
-        daily.save()
-
-        monthly, _ = MonthlyCollection.objects.get_or_create(month=receipt.date.month, year=receipt.date.year)
-        monthly.total_amount += total_amount
-        monthly.save()
+                receipt = Receipt.objects.create(
+                    student=student,
+                    total_amount=total_amount,
+                    payment_status=paid_status,
+                    academic_year=academic_year,
+                    date=payment_date
+                )
+        
+                for mapping in mappings_to_pay:
+                    ReceiptItem.objects.create(
+                        receipt=receipt,
+                        fee_category=mapping.fee_category,
+                        amount=mapping.amount,
+                        month=mapping.month
+                    )
+                    mapping.is_paid = True
+                    mapping.save()
+                    
+                # Update Collections
+                daily, _ = DailyCollection.objects.get_or_create(date=receipt.date)
+                daily.total_amount += total_amount
+                daily.save()
+        
+                monthly, _ = MonthlyCollection.objects.get_or_create(month=receipt.date.month, year=receipt.date.year)
+                monthly.total_amount += total_amount
+                monthly.save()
 
     print("Data Reset and Seeding Complete!")
 

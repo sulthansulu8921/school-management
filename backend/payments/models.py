@@ -11,6 +11,7 @@ class FeeCategory(models.Model):
 
 class CCAActivity(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    monthly_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     description = models.TextField(blank=True)
 
     def __str__(self):
@@ -37,6 +38,12 @@ class StudentFeeMapping(models.Model):
     def __str__(self):
         return f"{self.student.name} - {self.fee_category.name} ({self.month})"
 
+from django.conf import settings
+
+class ReceiptManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
 class Receipt(models.Model):
     receipt_no = models.CharField(max_length=50, unique=True, db_index=True, blank=True)
     date = models.DateField(db_index=True, default=timezone.now)
@@ -44,6 +51,21 @@ class Receipt(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_status = models.ForeignKey(PaymentStatus, on_delete=models.SET_NULL, null=True)
     academic_year = models.CharField(max_length=10, default='2024-25')
+    is_edited = models.BooleanField(default=False)
+    
+    # Soft delete fields
+    is_deleted = models.BooleanField(default=False, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='deleted_receipts'
+    )
+
+    objects = ReceiptManager()
+    all_objects = models.Manager()
     
     def save(self, *args, **kwargs):
         from django.db import transaction
@@ -80,13 +102,27 @@ class ReceiptItem(models.Model):
     month = models.CharField(max_length=20)
 
 class DailyCollection(models.Model):
-    date = models.DateField(unique=True)
+    date = models.DateField()
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    academic_year = models.CharField(max_length=10, default='2024-25', db_index=True)
+
+    class Meta:
+        unique_together = ('date', 'academic_year')
 
 class MonthlyCollection(models.Model):
     month = models.PositiveSmallIntegerField() # 1-12
     year = models.PositiveIntegerField()
     total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    academic_year = models.CharField(max_length=10, default='2024-25', db_index=True)
 
     class Meta:
-        unique_together = ('month', 'year')
+        unique_together = ('month', 'year', 'academic_year')
+
+class ReceiptAuditLog(models.Model):
+    receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name='audit_logs')
+    user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+    change_details = models.JSONField() # {field: {old: val, new: val}}
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Audit for {self.receipt.receipt_no} at {self.timestamp}"

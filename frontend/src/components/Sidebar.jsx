@@ -12,11 +12,13 @@ import {
     Settings,
     LogOut,
     CheckCircle2,
-    List
+    List,
+    UserPlus,
+    X
 } from 'lucide-react';
 import logo from '../assets/logo.jpeg';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, setIsOpen }) => {
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: List, label: 'Fee Categories', path: '/fee-categories' },
@@ -24,6 +26,7 @@ const Sidebar = () => {
         { icon: Users, label: 'Students', path: '/students' },
         { icon: BarChart3, label: 'Reports', path: '/reports' },
         { icon: Activity, label: 'CCA Management', path: '/cca' },
+        { icon: UserPlus, label: 'Promote Class', path: '/promote' },
         { icon: Clock, label: 'Pending Fees', path: '/reports?tab=pending' },
         { icon: CalendarRange, label: 'Monthly Summary', path: '/reports?tab=monthly' },
         { icon: Database, label: 'Backup', path: '/backup' },
@@ -35,7 +38,15 @@ const Sidebar = () => {
     };
 
     return (
-        <div className="w-72 h-screen sidebar-gradient text-white flex flex-col shadow-2xl z-20 overflow-hidden">
+        <div className={`fixed inset-y-0 left-0 lg:static w-72 h-screen sidebar-gradient text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 transform ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} overflow-hidden`}>
+            {/* Mobile Close Button */}
+            <button
+                onClick={() => setIsOpen(false)}
+                className="lg:hidden absolute top-4 right-4 p-2 text-white/60 hover:text-white"
+            >
+                <X size={20} />
+            </button>
+
             {/* School Branding */}
             <div className="p-8 pb-4 flex flex-col items-center border-b border-navy-700/50">
                 <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm border border-white/20 shadow-inner">

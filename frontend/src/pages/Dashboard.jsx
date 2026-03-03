@@ -12,16 +12,17 @@ import {
     ArrowUpRight,
     Search,
     ChevronDown,
-    MoreVertical,
-    BarChart3
+    MoreVertical
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useAcademicYear } from '../context/AcademicYearContext';
 
 const Dashboard = () => {
     const [stats, setStats] = useState(null);
     const navigate = useNavigate();
+    const { academicYear } = useAcademicYear();
 
     useEffect(() => {
         fetchDashboardData();
@@ -29,14 +30,25 @@ const Dashboard = () => {
         // Listen for payment updates to refresh charts instantly
         window.addEventListener('payment-updated', fetchDashboardData);
         return () => window.removeEventListener('payment-updated', fetchDashboardData);
-    }, []);
+    }, [academicYear]);
 
     const fetchDashboardData = async () => {
         try {
-            const response = await api.get('reports/dashboard/');
+            const response = await api.get(`reports/dashboard/?academic_year=${academicYear}`);
             setStats(response.data);
         } catch (error) {
             console.error('Failed to fetch dashboard data', error);
+            // Set empty stats to stop the loader in case of error
+            setStats({
+                year_collection: 0,
+                total_students: 0,
+                today_collection: 0,
+                today_receipt_count: 0,
+                pending_amount: 0,
+                pending_student_count: 0,
+                recent_transactions: [],
+                chart_data: []
+            });
         }
     };
 
@@ -54,11 +66,11 @@ const Dashboard = () => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Stats Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 <DashboardCard
                     title="Total Collection"
-                    value={`₹${stats.month_collection.toLocaleString('en-IN')}`}
-                    subValue="+ 12% vs Last Month"
+                    value={`₹${stats.year_collection.toLocaleString('en-IN')}`}
+                    subValue="Academic Year Total"
                     icon={<IndianRupee className="text-green-600" size={20} />}
                     iconBg="bg-green-100"
                     trend={<ArrowUpRight size={14} className="text-green-500" />}
@@ -87,80 +99,77 @@ const Dashboard = () => {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                 {/* Left Column: Big Chart & Recent */}
                 <div className="lg:col-span-2 space-y-8">
                     {/* Monthly Collection Chart Card */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden group">
-                        <div className="flex justify-between items-center mb-8">
+                    <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                             <div>
-                                <h3 className="text-lg font-black text-gray-800 tracking-tight">Monthly Collection - {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}</h3>
-                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Fee Analytics</p>
+                                <h3 className="text-base sm:text-lg font-black text-gray-800 tracking-tight">Monthly Collections - {academicYear}</h3>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Fee Analytics</p>
                             </div>
-                            <button onClick={() => navigate('/reports')} className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-sm border border-blue-100">
+                            <button onClick={() => navigate('/reports')} className="w-full sm:w-auto px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-sm border border-blue-100">
                                 View Report
                             </button>
                         </div>
 
-                        <div className="h-[300px] w-full mt-4">
+                        <div className="h-[250px] sm:h-[300px] w-full mt-4">
                             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                <BarChart data={rawChartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <BarChart data={rawChartData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis
-                                        dataKey="name"
+                                        dataKey="short_name"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                                        tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 700 }}
                                         dy={10}
+                                        interval={0}
                                     />
                                     <YAxis
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
                                     />
                                     <Tooltip
                                         cursor={{ fill: 'transparent' }}
-                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                                     />
-                                    <Bar dataKey="collection" radius={[6, 6, 0, 0]} barSize={40}>
-                                        {rawChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Bar>
+                                    <Bar dataKey="collection" name="Collections" radius={[4, 4, 0, 0]} barSize={30} fill="#0d6efd" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
 
-                        <div className="mt-8 flex items-end justify-between border-t border-gray-50 pt-6">
-                            <div className="flex items-center gap-4">
+                        <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-end justify-between border-t border-gray-50 pt-6 gap-4">
+                            <div className="flex items-center gap-4 flex-wrap">
                                 <span className="text-sm font-bold text-gray-400">Total:</span>
-                                <span className="text-3xl font-black text-gray-800">₹{stats.month_collection.toLocaleString('en-IN')}</span>
-                                <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-black flex items-center gap-1">
-                                    <TrendingUp size={12} /> +18%
+                                <span className="text-2xl sm:text-3xl font-black text-gray-800">₹{stats.year_collection.toLocaleString('en-IN')}</span>
+                                <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-black flex items-center gap-1">
+                                    <TrendingUp size={12} /> Yearly Total
                                 </span>
                             </div>
                         </div>
                     </div>
 
                     {/* Recent Transactions (Smaller Style) */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm border border-gray-100">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-black text-gray-800 tracking-tight">Recent Transactions</h3>
                             <button onClick={() => navigate('/payments')} className="text-xs font-bold text-blue-500 hover:underline">See All</button>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-3 sm:space-y-4">
                             {stats.recent_transactions.slice(0, 4).map((t, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 rounded-2xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                                            <FileText size={18} />
+                                <div key={i} className="flex items-center justify-between p-3 sm:p-4 rounded-2xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100 gap-2">
+                                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+                                            <FileText size={16} />
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-gray-800">{t.student_name}</p>
-                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t.fee_type} • {t.date}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-gray-800 truncate">{t.student_name}</p>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate">{t.fee_type} • {t.date}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right flex-shrink-0">
                                         <p className="text-sm font-black text-gray-900">₹{parseFloat(t.amount).toFixed(2)}</p>
                                         <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Success</p>
                                     </div>
@@ -204,17 +213,6 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        {/* Additional Info Box */}
-                        <div className="mt-12 bg-blue-600 rounded-3xl p-6 text-white relative overflow-hidden shadow-xl shadow-blue-200">
-                            <div className="relative z-10">
-                                <h4 className="text-lg font-black mb-1">Stay Organized</h4>
-                                <p className="text-xs text-blue-100 font-medium leading-relaxed">Check your pending fees daily to maintain school revenue flow.</p>
-                                <button className="mt-4 px-4 py-2 bg-white text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all">
-                                    Check Now
-                                </button>
-                            </div>
-                            <BarChart3 size={80} className="absolute -bottom-4 -right-4 text-white/10" />
-                        </div>
                     </div>
                 </div>
             </div>
@@ -222,10 +220,10 @@ const Dashboard = () => {
             {/* Floating Action Button */}
             <button
                 onClick={() => navigate('/payments')}
-                className="fixed bottom-12 right-12 px-6 py-4 bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 flex items-center gap-3 hover:scale-105 transition-all duration-300 group z-30"
+                className="fixed bottom-6 sm:bottom-12 right-6 sm:right-12 px-5 py-3 sm:px-6 sm:py-4 bg-white text-gray-800 rounded-2xl shadow-2xl border border-gray-100 flex items-center gap-3 hover:scale-105 transition-all duration-300 group z-30"
             >
-                <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center transition-transform group-hover:rotate-90">
-                    <Plus size={20} />
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center transition-transform group-hover:rotate-90">
+                    <Plus size={18} />
                 </div>
                 <span className="text-sm font-black tracking-tight">New Receipt</span>
             </button>
@@ -234,24 +232,24 @@ const Dashboard = () => {
 };
 
 const DashboardCard = ({ title, value, subValue, icon, iconBg, trend, isAlert }) => (
-    <div className={`bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group ${isAlert ? 'bg-gradient-to-br from-white to-orange-50/30' : ''}`}>
+    <div className={`bg-white rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group ${isAlert ? 'bg-gradient-to-br from-white to-orange-50/30' : ''}`}>
         <div className="flex justify-between items-start mb-4">
-            <div className={`p-3 rounded-2xl ${iconBg} transition-transform group-hover:scale-110 duration-500`}>
-                {icon}
+            <div className={`p-2.5 sm:p-3 rounded-2xl ${iconBg} transition-transform group-hover:scale-110 duration-500`}>
+                {React.cloneElement(icon, { size: 18 })}
             </div>
             <button className="text-gray-300 hover:text-gray-500 transition-colors">
                 <MoreVertical size={16} />
             </button>
         </div>
         <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{title}</p>
-            <div className="flex items-center gap-3">
-                <h3 className="text-2xl font-black text-gray-800 tracking-tight">{value}</h3>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{title}</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+                <h3 className="text-xl sm:text-2xl font-black text-gray-800 tracking-tight">{value}</h3>
                 {trend && <div className="flex items-center">{trend}</div>}
             </div>
             <div className="mt-3 flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${isAlert ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`} />
-                <p className={`text-[10px] font-black uppercase tracking-tighter ${isAlert ? 'text-orange-600' : 'text-gray-400'}`}>
+                <p className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tighter ${isAlert ? 'text-orange-600' : 'text-gray-400'}`}>
                     {subValue}
                 </p>
             </div>
