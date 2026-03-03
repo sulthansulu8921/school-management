@@ -2,6 +2,7 @@ services:
   # Backend Service
   - type: web
     name: school-manage-backend
+    plan: free
     runtime: python
     buildCommand: ./build.sh
     startCommand: gunicorn config.wsgi
