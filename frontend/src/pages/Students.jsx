@@ -6,13 +6,16 @@ import { jsPDF } from 'jspdf';
 import schoolLogo from '../assets/logo.jpeg';
 
 const Students = () => {
+    const { academicYear, availableYears, loading: yearsLoading } = useAcademicYear();
     const [students, setStudents] = useState([]);
-    const [search, setSearch] = useState('');
-    const [filterClass, setFilterClass] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedClass, setSelectedClass] = useState('All');
+    const [selectedStatus, setSelectedStatus] = useState('Active');
+    const [filterYear, setFilterYear] = useState(academicYear);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentStudent, setCurrentStudent] = useState(null);
-    const { academicYear } = useAcademicYear();
     const [ccaOptions, setCcaOptions] = useState([]);
 
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -29,6 +32,7 @@ const Students = () => {
         tuition_fee: '',
         status: 'Active',
         starting_month: currentMonthName,
+        starting_year: new Date().getFullYear(),
         academic_year: academicYear
     });
     const [isCustomBus, setIsCustomBus] = useState(false);
@@ -36,7 +40,7 @@ const Students = () => {
     useEffect(() => {
         fetchStudents();
         fetchCcaOptions();
-    }, [search, filterClass, academicYear]);
+    }, [searchTerm, selectedClass, academicYear]);
 
     const fetchCcaOptions = async () => {
         try {
@@ -50,7 +54,7 @@ const Students = () => {
     const fetchStudents = async () => {
         try {
             const response = await api.get('students/', {
-                params: { search, student_class: filterClass, academic_year: academicYear }
+                params: { search: searchTerm, student_class: selectedClass === 'All' ? '' : selectedClass, academic_year: academicYear }
             });
             setStudents(response.data.results || response.data);
         } catch (error) {
@@ -75,6 +79,7 @@ const Students = () => {
                 tuition_fee: '',
                 status: 'Active',
                 starting_month: currentMonthName,
+                starting_year: new Date().getFullYear(),
                 academic_year: academicYear,
                 cca_activities: [],
                 cca_fee: '0.00'
@@ -428,6 +433,7 @@ const Students = () => {
                 fetchStudents();
             } catch (error) {
                 console.error('Error deleting student', error);
+                alert('Failed to delete student: ' + (error.response?.data?.detail || JSON.stringify(error.response?.data) || error.message));
             }
         }
     };
@@ -451,14 +457,23 @@ const Students = () => {
                     <input
                         type="text"
                         placeholder="Search by name, admission no, or phone..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     />
                 </div>
                 <select
-                    value={filterClass}
-                    onChange={(e) => setFilterClass(e.target.value)}
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(e.target.value)}
+                    className="bg-transparent border-none font-bold text-gray-800 text-xs focus:ring-0 outline-none cursor-pointer"
+                >
+                    {availableYears.map(y => (
+                        <option key={y.id} value={y.name}>{y.name}</option>
+                    ))}
+                </select>
+                <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
                 >
                     <option value="">All Classes</option>
@@ -662,6 +677,15 @@ const Students = () => {
                                     </select>
                                 </div>
 
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Joining Year</label>
+                                    <select name="starting_year" value={formData.starting_year} onChange={handleChange} className="w-full border border-gray-300 rounded-lg py-2 px-3 focus:ring-2 focus:ring-primary-500 outline-none">
+                                        {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2].map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <div className="bg-gray-50 p-4 rounded-xl space-y-3">
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Select CCA Activities</label>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -696,10 +720,10 @@ const Students = () => {
                                 </div>
                             </form>
                         </div>
-                    </div>
-                </div>
+                    </div >
+                </div >
             )}
-        </div>
+        </div >
     );
 };
 

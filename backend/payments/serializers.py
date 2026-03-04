@@ -52,6 +52,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     payment_status_details = PaymentStatusSerializer(source='payment_status', read_only=True)
     fee_type_summary = serializers.SerializerMethodField()
     month_summary = serializers.SerializerMethodField()
+    summarized_items = serializers.SerializerMethodField()
     audit_logs = ReceiptAuditLogSerializer(many=True, read_only=True)
     deleted_by_name = serializers.ReadOnlyField(source='deleted_by.username')
     
@@ -66,3 +67,33 @@ class ReceiptSerializer(serializers.ModelSerializer):
     def get_month_summary(self, obj):
         months = obj.items.values_list('month', flat=True).distinct()
         return ", ".join([get_month_year(m, obj.academic_year, obj.student.starting_month) for m in months])
+
+    def get_summarized_items(self, obj):
+        from collections import defaultdict
+        from .utils import MONTHS_ORDER
+
+        # Group by category
+        groups = defaultdict(list)
+        for item in obj.items.all():
+            groups[item.fee_category.name].append(item)
+
+        summarized = []
+        for cat_name, items in groups.items():
+            total_amount = sum(item.amount for item in items)
+            
+            # Sort months by MONTHS_ORDER to find range
+            months = [it.month for it in items]
+            sorted_months = sorted(months, key=lambda m: MONTHS_ORDER.index(m) if m in MONTHS_ORDER else 99)
+            
+            if len(sorted_months) > 1:
+                month_range = f"{sorted_months[0][:3]}–{sorted_months[-1][:3]}"
+            else:
+                month_range = sorted_months[0]
+
+            summarized.append({
+                'category': cat_name,
+                'month_range': month_range,
+                'amount': total_amount
+            })
+            
+        return summarized

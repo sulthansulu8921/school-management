@@ -12,6 +12,7 @@ import Backup from './pages/Backup';
 import Settings from './pages/Settings';
 import FeeCategories from './pages/FeeCategories';
 import RecycleBin from './pages/RecycleBin';
+import AcademicYears from './pages/AcademicYears';
 
 const App = () => {
   return (
@@ -30,6 +31,7 @@ const App = () => {
           <Route path="backup" element={<Backup />} />
           <Route path="settings" element={<Settings />} />
           <Route path="fee-categories" element={<FeeCategories />} />
+          <Route path="academic-years" element={<AcademicYears />} />
         </Route>
       </Routes>
     </HashRouter>

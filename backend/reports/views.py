@@ -18,13 +18,13 @@ MONTH_MAP = {
     'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
 }
 
-def get_due_months(academic_year, start_month):
+def get_due_months(academic_year, start_month, start_year_override=None):
     """
     Returns a list of months from the start_month up to the current month, 
     strictly bounded by the 12-month academic cycle starting from start_month.
     """
     try:
-        start_year = int(academic_year.split('-')[0])
+        start_year = start_year_override if start_year_override is not None else int(academic_year.split('-')[0])
         start_month_num = MONTH_MAP.get(start_month, 4)
         
         # Academic year officially starts on the 1st of the start_month
@@ -43,9 +43,6 @@ def get_due_months(academic_year, start_month):
             
         today = timezone.now().date()
 
-        if today < ay_start_date:
-            return []
-            
         # Generate the circular list of months for THIS academic year
         # e.g. if start is June: [June, July, ..., Dec, Jan, ..., May]
         ordered_cycle = []
@@ -58,6 +55,9 @@ def get_due_months(academic_year, start_month):
         if today > ay_end_date:
             # Year is over, all 12 months are due
             return ordered_cycle
+            
+        if today < ay_start_date:
+            return []
         
         # Today is within the cycle. How many months have passed?
         # Number of months from start_date to today
@@ -76,12 +76,10 @@ class DashboardAPIView(APIView):
         today = timezone.now().date()
         total_students = Student.objects.filter(status='Active', academic_year=academic_year).count()
         
-        # Pull from optimized collection tables
-        daily_stat = DailyCollection.objects.filter(date=today, academic_year=academic_year).first()
-        today_collection = daily_stat.total_amount if daily_stat else 0
+        # Pull from real-time transaction records
+        today_collection = Receipt.objects.filter(date=today, academic_year=academic_year).aggregate(total=Sum('total_amount'))['total'] or 0
         
-        monthly_stat = MonthlyCollection.objects.filter(month=today.month, year=today.year, academic_year=academic_year).first()
-        month_collection = monthly_stat.total_amount if monthly_stat else 0
+        month_collection = Receipt.objects.filter(date__month=today.month, date__year=today.year, academic_year=academic_year).aggregate(total=Sum('total_amount'))['total'] or 0
         
         # Academic year month order (April to March)
         # Determine starting month for filtering
@@ -99,13 +97,13 @@ class DashboardAPIView(APIView):
         ay_start_date = date(start_year_val, start_month_num, 1)
         
         # If today is before the start of the academic year, the whole year has 0 totals
-        is_started = today >= ay_start_date
+        is_started = today >= ay_start_date or (start_year_val < today.year)
 
         pending_stats = StudentFeeMapping.objects.filter(
             is_paid=False,
             month__in=due_months,
             academic_year=academic_year,
-            amount__gt=0
+            amount__gt=F('paid_amount')
         ).aggregate(
             total_owed=Sum('amount'),
             total_paid=Sum('paid_amount')
@@ -118,7 +116,7 @@ class DashboardAPIView(APIView):
             is_paid=False,
             month__in=due_months,
             academic_year=academic_year,
-            amount__gt=0
+            amount__gt=F('paid_amount')
         ).values('student').distinct().count() if is_started else 0
         
         today_receipt_count = Receipt.objects.filter(date=timezone.now().date(), academic_year=academic_year).count() if is_started else 0
@@ -133,12 +131,20 @@ class DashboardAPIView(APIView):
         } for r in recent_transactions]
         
         # Monthly collection and pending chart data (Circular order)
+        # Calculate collection per month directly from Receipts
+        collection_qs = Receipt.objects.filter(
+            academic_year=academic_year,
+            # date__year and date__month would be better but we need to align with ordered_cycle
+        ).values('date__month').annotate(
+            total_collection=Sum('total_amount')
+        )
+        collection_map = {item['date__month']: float(item['total_collection'] or 0) for item in collection_qs}
+
         # Calculate pending per month efficiently
-        from django.db.models import F
         pending_qs = StudentFeeMapping.objects.filter(
             academic_year=academic_year,
             is_paid=False,
-            amount__gt=0
+            amount__gt=F('paid_amount')
         ).values('month').annotate(
             total_pending=Sum(F('amount') - F('paid_amount'))
         )
@@ -155,8 +161,7 @@ class DashboardAPIView(APIView):
             else:
                 cur_year = start_year_val
 
-            stat = MonthlyCollection.objects.filter(month=m_num, year=cur_year, academic_year=academic_year).first()
-            coll = stat.total_amount if stat and is_started else 0
+            coll = collection_map.get(m_num, 0.0) if is_started else 0.0
             
             month_year_label = get_month_year(month_name, academic_year, year_start_month)
 
@@ -168,8 +173,8 @@ class DashboardAPIView(APIView):
                 'color': '#0066cc' if i % 2 == 0 else '#10b981'
             })
             
-        # Calculate total collection for the entire academic year
-        year_collection = MonthlyCollection.objects.filter(academic_year=academic_year).aggregate(total=Sum('total_amount'))['total'] or 0
+        # Calculate total collection for the entire academic year (Excluding soft-deleted)
+        year_collection = Receipt.objects.filter(academic_year=academic_year).aggregate(total=Sum('total_amount'))['total'] or 0
         
         return Response({
             'total_students': total_students,
@@ -309,15 +314,15 @@ class StudentWiseReportAPIView(APIView):
             
         receipts = Receipt.objects.filter(receipt_filter).prefetch_related('items', 'items__fee_category').select_related('payment_status').order_by('-date')
         
-        # Get pending fees up to today (Strictly bounded by academic year and start month)
-        due_months = get_due_months(academic_year or '2024-25', student.starting_month)
-            
+        # Calculate due months for THIS student based on their transition settings
+        due_months = get_due_months(academic_year or '2024-25', student.starting_month, student.starting_year)
+        
         pending_mappings = StudentFeeMapping.objects.filter(
             student=student,
             is_paid=False,
             month__in=due_months,
             academic_year=academic_year or '2024-25',
-            amount__gt=0
+            amount__gt=F('paid_amount')
         )
         # Order pending months circularlly based on student's start month
         start_month_num = MONTH_MAP.get(student.starting_month, 4)
@@ -418,7 +423,7 @@ class ClassWiseReportAPIView(APIView):
         year_start_month = students_queryset.first().starting_month if students_queryset.exists() else 'April'
         due_months = get_due_months(academic_year, year_start_month)
         
-        m_unpaid_filter = Q(academic_year=academic_year, is_paid=False, month__in=due_months, amount__gt=0)
+        m_unpaid_filter = Q(academic_year=academic_year, is_paid=False, month__in=due_months, amount__gt=F('paid_amount'))
         if fee_type: m_unpaid_filter &= Q(fee_category_id=fee_type)
         if s_filter: m_unpaid_filter &= Q(student__in=students_queryset)
         
@@ -502,7 +507,7 @@ class MonthlySummaryAPIView(APIView):
         pending_qs = StudentFeeMapping.objects.filter(
             academic_year=academic_year,
             is_paid=False,
-            amount__gt=0
+            amount__gt=F('paid_amount')
         ).values('month').annotate(
             total_pending=Sum(F('amount') - F('paid_amount'))
         )
@@ -539,11 +544,11 @@ class PendingReportAPIView(APIView):
 
         if not class_name:
             # Return class-wise grouping of pending students (only for due months)
-            mappings = StudentFeeMapping.objects.filter(
+            # Need to ensure students actually have an unpaid balance 
+            mappings_qs = StudentFeeMapping.objects.filter(
                 is_paid=False,
                 month__in=due_months,
-                academic_year=academic_year,
-                amount__gt=0
+                academic_year=academic_year
             )
             
             fee_type = request.query_params.get('fee_type')
@@ -551,16 +556,20 @@ class PendingReportAPIView(APIView):
             search = request.query_params.get('search')
             
             if fee_type:
-                mappings = mappings.filter(fee_category_id=fee_type)
+                mappings_qs = mappings_qs.filter(fee_category_id=fee_type)
             if division:
-                mappings = mappings.filter(student__division=division)
+                mappings_qs = mappings_qs.filter(student__division=division)
             if search:
-                mappings = mappings.filter(
+                mappings_qs = mappings_qs.filter(
                     Q(student__name__icontains=search) | 
                     Q(student__admission_no__icontains=search)
                 )
 
-            report = mappings.values('student__student_class').annotate(
+            # We need to filter out mappings where the balance remaining is 0 or less
+            # using F expressions
+            mappings_qs = mappings_qs.filter(amount__gt=F('paid_amount'))
+
+            report = mappings_qs.values('student__student_class').annotate(
                 unpaid_count=Count('student', distinct=True)
             )
             data = [{
@@ -579,9 +588,8 @@ class PendingReportAPIView(APIView):
                 is_paid=False, 
                 student__student_class=class_name,
                 month__in=due_months,
-                academic_year=academic_year,
-                amount__gt=0
-            ).select_related('student', 'fee_category')
+                academic_year=academic_year
+            ).filter(amount__gt=F('paid_amount')).select_related('student', 'fee_category')
             
             fee_type = request.query_params.get('fee_type')
             division = request.query_params.get('division')
@@ -606,12 +614,15 @@ class PendingReportAPIView(APIView):
                         'admission_no': m.student.admission_no,
                         'phone_number': m.student.phone_number,
                         'pending_amount': 0,
-                        'pending_months': set()
+                        'pending_months': set(),
+                        'mapping_ids': []
                     }
                 try:
                     students_dict[m.student.id]['pending_amount'] += (m.amount - getattr(m, 'paid_amount', 0))
                 except:
                     students_dict[m.student.id]['pending_amount'] += m.amount
+                
+                students_dict[m.student.id]['mapping_ids'].append(m.id)
                 if m.month:
                     students_dict[m.student.id]['pending_months'].add(get_month_year(m.month, academic_year, m.student.starting_month))
             

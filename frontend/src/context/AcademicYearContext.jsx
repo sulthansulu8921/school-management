@@ -1,21 +1,46 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const AcademicYearContext = createContext();
 
 export const AcademicYearProvider = ({ children }) => {
-    // Default to 2024-25, or fetch from localStorage
     const [academicYear, setAcademicYear] = useState(
-        localStorage.getItem('academic_year') || '2024-25'
+        localStorage.getItem('academic_year')
     );
+    const [availableYears, setAvailableYears] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchYears = async () => {
+        try {
+            const res = await api.get('academic-years/');
+            const years = res.data.results || res.data || [];
+            setAvailableYears(years);
+
+            // If no year is set or current year is not in available years, pick the most recent active one
+            if (!academicYear || !years.find(y => y.name === academicYear)) {
+                const activeYear = years.find(y => y.is_active) || years[0];
+                if (activeYear) {
+                    setAcademicYear(activeYear.name);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch academic years', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchYears();
+    }, []);
 
     useEffect(() => {
         localStorage.setItem('academic_year', academicYear);
-        // Dispatch an event to notify other parts of the app if needed
         window.dispatchEvent(new CustomEvent('academic-year-changed', { detail: academicYear }));
     }, [academicYear]);
 
     return (
-        <AcademicYearContext.Provider value={{ academicYear, setAcademicYear }}>
+        <AcademicYearContext.Provider value={{ academicYear, setAcademicYear, availableYears, loading, refreshYears: fetchYears }}>
             {children}
         </AcademicYearContext.Provider>
     );

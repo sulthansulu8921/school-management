@@ -25,6 +25,8 @@ class PaymentStatus(models.Model):
 
 class StudentFeeMapping(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='fee_mappings')
+    academic_record = models.ForeignKey('students.StudentAcademicRecord', on_delete=models.CASCADE, related_name='fee_mappings', null=True, blank=True)
+    academic_year_ref = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE, null=True, blank=True)
     fee_category = models.ForeignKey(FeeCategory, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -48,6 +50,7 @@ class Receipt(models.Model):
     receipt_no = models.CharField(max_length=50, unique=True, db_index=True, blank=True)
     date = models.DateField(db_index=True, default=timezone.now)
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='receipts')
+    academic_year_ref = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_status = models.ForeignKey(PaymentStatus, on_delete=models.SET_NULL, null=True)
     academic_year = models.CharField(max_length=10, default='2024-25')
@@ -105,6 +108,7 @@ class DailyCollection(models.Model):
     date = models.DateField()
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     academic_year = models.CharField(max_length=10, default='2024-25', db_index=True)
+    academic_year_ref = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         unique_together = ('date', 'academic_year')
@@ -114,6 +118,7 @@ class MonthlyCollection(models.Model):
     year = models.PositiveIntegerField()
     total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     academic_year = models.CharField(max_length=10, default='2024-25', db_index=True)
+    academic_year_ref = models.ForeignKey('students.AcademicYear', on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         unique_together = ('month', 'year', 'academic_year')

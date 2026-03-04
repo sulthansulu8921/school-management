@@ -4,9 +4,9 @@ import api from '../services/api';
 import { useAcademicYear } from '../context/AcademicYearContext';
 
 const Promote = () => {
-    const { academicYear } = useAcademicYear();
+    const { academicYear, availableYears, loading: yearsLoading } = useAcademicYear();
     const [fromYear, setFromYear] = useState(academicYear);
-    const [targetYear, setTargetYear] = useState('2025-26');
+    const [targetYear, setTargetYear] = useState('');
     const [fromClass, setFromClass] = useState('');
     const [students, setStudents] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -14,7 +14,12 @@ const Promote = () => {
     const [result, setResult] = useState(null);
     const [classes, setClasses] = useState([]);
     const [startingMonth, setStartingMonth] = useState('April');
+    const [startingYear, setStartingYear] = useState(new Date().getFullYear());
     const [keepFees, setKeepFees] = useState(true);
+
+    useEffect(() => {
+        setFromYear(academicYear);
+    }, [academicYear]);
 
     useEffect(() => {
         fetchClasses();
@@ -73,8 +78,18 @@ const Promote = () => {
     };
 
     const handlePromote = async () => {
+        if (!targetYear) {
+            alert('Please select a target academic year.');
+            return;
+        }
+
         if (selectedIds.length === 0) {
             alert('Please select at least one student.');
+            return;
+        }
+
+        if (targetYear === fromYear) {
+            alert('Target year cannot be the same as the source year.');
             return;
         }
 
@@ -86,12 +101,13 @@ const Promote = () => {
         try {
             const res = await api.post('students/promote/', {
                 student_ids: selectedIds,
+                from_year: fromYear,
                 target_year: targetYear,
                 starting_month: startingMonth,
+                starting_year: startingYear,
                 keep_fees: keepFees
             });
             setResult(res.data);
-            // Clear selection after success
             if (res.data.message) {
                 setStudents([]);
                 setFromClass('');
@@ -128,9 +144,9 @@ const Promote = () => {
                                 onChange={(e) => setFromYear(e.target.value)}
                                 className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
                             >
-                                <option value="2023-24">2023-24</option>
-                                <option value="2024-25">2024-25</option>
-                                <option value="2025-26">2025-26</option>
+                                {availableYears.map(y => (
+                                    <option key={y.id} value={y.name}>{y.name}</option>
+                                ))}
                             </select>
                         </div>
 
@@ -145,9 +161,10 @@ const Promote = () => {
                                 onChange={(e) => setTargetYear(e.target.value)}
                                 className="w-full px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-sm"
                             >
-                                <option value="2024-25">2024-25</option>
-                                <option value="2025-26">2025-26</option>
-                                <option value="2026-27">2026-27</option>
+                                <option value="">-- Select Target Year --</option>
+                                {availableYears.map(y => (
+                                    <option key={y.id} value={y.name}>{y.name}</option>
+                                ))}
                             </select>
                         </div>
 
@@ -175,6 +192,19 @@ const Promote = () => {
                                 >
                                     {["April", "May", "June", "July", "August", "September", "October", "November", "December", "January", "February", "March"].map(m => (
                                         <option key={m} value={m}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Calculation Start Year</label>
+                                <select
+                                    value={startingYear}
+                                    onChange={(e) => setStartingYear(parseInt(e.target.value))}
+                                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 outline-none focus:ring-2 focus:ring-blue-100 transition-all text-xs"
+                                >
+                                    {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1, new Date().getFullYear() + 2].map(y => (
+                                        <option key={y} value={y}>{y}</option>
                                     ))}
                                 </select>
                             </div>

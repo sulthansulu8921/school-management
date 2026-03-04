@@ -14,7 +14,8 @@ import {
     CheckCircle2,
     List,
     UserPlus,
-    X
+    X,
+    Calendar
 } from 'lucide-react';
 import logo from '../assets/logo.jpeg';
 
@@ -22,6 +23,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         { icon: List, label: 'Fee Categories', path: '/fee-categories' },
+        { icon: Calendar, label: 'Academic Years', path: '/academic-years' },
         { icon: FileText, label: 'Recent Receipts', path: '/payments' },
         { icon: Users, label: 'Students', path: '/students' },
         { icon: BarChart3, label: 'Reports', path: '/reports' },

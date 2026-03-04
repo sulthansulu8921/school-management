@@ -99,15 +99,16 @@ const Payments = () => {
         // Check for studentId in URL
         const params = new URLSearchParams(window.location.hash.split('?')[1]);
         const studentId = params.get('studentId');
+        const feeIds = params.get('feeIds');
         if (studentId) {
-            handleAutoOpenForStudent(studentId);
+            handleAutoOpenForStudent(studentId, feeIds);
         }
     }, [academicYear]);
 
-    const handleAutoOpenForStudent = async (id) => {
+    const handleAutoOpenForStudent = async (id, feeIds = null) => {
         try {
             const res = await api.get(`students/${id}/`);
-            handleStudentSelect(res.data);
+            handleStudentSelect(res.data, feeIds);
             setIsModalOpen(true);
         } catch (e) { console.error(e); }
     };
@@ -149,7 +150,7 @@ const Payments = () => {
         setFormData(prev => ({ ...prev, [name]: val }));
     };
 
-    const handleStudentSelect = async (student) => {
+    const handleStudentSelect = async (student, preSelectedFeeIds = null) => {
         setFormData(prev => ({
             ...prev,
             student: student.id,
@@ -162,55 +163,72 @@ const Payments = () => {
 
         // Fetch unpaid mappings for this student
         try {
-            const res = await api.get('payments/fee-mappings/', { params: { student: student.id, is_paid: false, academic_year: academicYear } });
+            // If preSelectedFeeIds are provided as a string, use the new 'ids' filter
+            const queryParams = { student: student.id, is_paid: false, academic_year: academicYear };
+            if (preSelectedFeeIds) {
+                queryParams.ids = preSelectedFeeIds;
+            }
+
+            const res = await api.get('payments/fee-mappings/', { params: queryParams });
             const data = res.data.results || res.data || [];
             setUnpaidFees(data);
 
-            // Auto-calculate total based on remaining balance
+            // Auto-calculate total and select IDs
+            // If we came from a targeted 'Pay' click, we only select what's returned (since the API filtered it)
+            // If we are just selecting a student normally, we keep the original 'select all' behavior
+            const selectedIds = data.map(item => item.id);
             const total = data.reduce((sum, item) => sum + (parseFloat(item.amount) - parseFloat(item.paid_amount || 0)), 0);
+
             setFormData(prev => ({
                 ...prev,
                 total_amount: total,
-                item_ids: data.map(item => item.id)
+                item_ids: selectedIds
             }));
         } catch (e) { console.error('Error fetching unpaid fees', e); }
     };
 
-    const handleShare = async (receipt = lastCreatedReceipt) => {
-        if (!receipt) return;
+    const handleShare = async (receiptId) => {
+        if (!receiptId) return;
+        setLoading(true);
 
         try {
-            // Generate PDF but don't open/save automatically
-            const doc = await generateReceiptPDF(receipt, schoolLogo, {
+            // High-fidelity data fetch before PDF generation
+            const res = await api.get(`payments/receipts/${receiptId}/`);
+            const fullReceipt = res.data;
+
+            if (!fullReceipt || !fullReceipt.receipt_no) {
+                throw new Error('Incomplete receipt data');
+            }
+
+            const doc = await generateReceiptPDF(fullReceipt, schoolLogo, {
                 shouldSave: false,
                 shouldOpen: false
             });
 
             const blob = doc.output('blob');
-            const fileName = `Receipt_${receipt.receipt_no}.pdf`;
+            const fileName = `Receipt_${fullReceipt.receipt_no}.pdf`;
             const file = new File([blob], fileName, { type: 'application/pdf' });
 
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
-                    files: [file],
-                    title: 'School Fee Receipt',
-                    text: `Fee receipt for ${receipt.student_details?.name} (${receipt.receipt_no})`
+                    files: [file]
                 });
             } else {
-                // Fallback: Just open/save the PDF as we do for printing
                 const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = fileName;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                alert('PDF generated and downloaded. You can now share it manually.');
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
         } catch (err) {
             console.error('Share failed', err);
-            alert('Sharing failed. Try printing the receipt instead.');
+            alert('Sharing failed. Please try "Print" instead.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -259,7 +277,11 @@ const Payments = () => {
                 await api.put(`payments/receipts/${formData.id}/`, formData);
             } else {
                 const res = await api.post('payments/receipts/', formData);
-                setLastCreatedReceipt(res.data);
+                // The POST response might not have the fully populated nested fields (items, student_details) 
+                // because items are generated post-save in the backend. 
+                // So we fetch the full representation immediately for the preview screen.
+                const fullRes = await api.get(`payments/receipts/${res.data.id}/`);
+                setLastCreatedReceipt(fullRes.data);
                 setShowPreview(true);
             }
             setIsModalOpen(false);
@@ -434,21 +456,64 @@ const Payments = () => {
                                         )}
                                         {formData.student && (
                                             <div className="mt-2 p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-2">
-                                                <div className="flex items-center gap-2">
-                                                    <CheckCircle size={14} className="text-blue-600" />
-                                                    <span className="text-xs font-bold text-blue-800">Selected: {formData.student_name}</span>
+                                                <div className="flex items-center justify-between pb-2 border-b border-blue-100">
+                                                    <div className="flex items-center gap-2">
+                                                        <CheckCircle size={14} className="text-blue-600" />
+                                                        <span className="text-xs font-bold text-blue-800">Selected: {formData.student_name}</span>
+                                                    </div>
+                                                    {unpaidFees.length > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const allSelected = formData.item_ids.length === unpaidFees.length;
+                                                                const newIds = allSelected ? [] : unpaidFees.map(f => f.id);
+                                                                const newTotal = allSelected ? 0 : unpaidFees.reduce((sum, f) => sum + (parseFloat(f.amount) - parseFloat(f.paid_amount || 0)), 0);
+                                                                setFormData(prev => ({ ...prev, item_ids: newIds, total_amount: newTotal }));
+                                                            }}
+                                                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase bg-blue-100/50 px-2 py-1 rounded"
+                                                        >
+                                                            {formData.item_ids.length === unpaidFees.length ? 'Deselect All' : 'Select All'} ({unpaidFees.length})
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                                                    {unpaidFees.map(item => (
-                                                        <div key={item.id} className="bg-white/60 p-2 rounded-lg border border-blue-100 flex justify-between items-center">
-                                                            <div>
-                                                                <span className="text-[10px] font-bold text-gray-400 uppercase block">{item.fee_category_details.name}</span>
-                                                                <span className="text-xs font-bold text-gray-700">{item.month_with_year || item.month}</span>
+                                                    {unpaidFees.map(item => {
+                                                        const isSelected = formData.item_ids.includes(item.id);
+                                                        const itemBalance = parseFloat(item.amount) - parseFloat(item.paid_amount || 0);
+                                                        return (
+                                                            <div
+                                                                key={item.id}
+                                                                onClick={() => {
+                                                                    setFormData(prev => {
+                                                                        const newIds = isSelected
+                                                                            ? prev.item_ids.filter(id => id !== item.id)
+                                                                            : [...prev.item_ids, item.id];
+
+                                                                        const newTotal = unpaidFees
+                                                                            .filter(f => newIds.includes(f.id))
+                                                                            .reduce((sum, f) => sum + (parseFloat(f.amount) - parseFloat(f.paid_amount || 0)), 0);
+
+                                                                        return { ...prev, item_ids: newIds, total_amount: newTotal };
+                                                                    });
+                                                                }}
+                                                                className={`p-2 rounded-lg border flex justify-between items-center cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/80 border-blue-200' : 'bg-white/60 border-gray-100 hover:bg-gray-50'}`}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                                                        {isSelected && <CheckCircle size={12} className="text-white" />}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-[10px] font-bold text-gray-400 uppercase block">{item.fee_category_details?.name}</span>
+                                                                        <span className="text-xs font-bold text-gray-700">{item.month_with_year || item.month}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <span className={`text-sm font-extrabold ${isSelected ? 'text-blue-700' : 'text-gray-500'}`}>
+                                                                    ₹{itemBalance.toFixed(2)}
+                                                                </span>
                                                             </div>
-                                                            <span className="text-sm font-extrabold text-blue-700">₹{(parseFloat(item.amount) - parseFloat(item.paid_amount || 0)).toFixed(2)}</span>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
 
                                                 <div className="flex justify-between items-center bg-primary-50 p-3 rounded-lg border border-primary-100 mt-2">
@@ -474,15 +539,24 @@ const Payments = () => {
                                     <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
                                         <div className="text-xs font-bold text-gray-400 uppercase mb-2">Final Summary</div>
                                         {paymentStatuses.find(ps => ps.id === formData.payment_status)?.name === 'Partial' ? (
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="text-2xl font-black text-gray-900">₹</span>
-                                                <input
-                                                    type="number"
-                                                    name="total_amount"
-                                                    value={formData.total_amount}
-                                                    onChange={handleChange}
-                                                    className="w-32 text-3xl font-black text-gray-900 bg-white border border-primary-300 rounded-lg text-center outline-none focus:ring-2 focus:ring-primary-500"
-                                                />
+                                            <div className="flex flex-col items-center justify-center gap-1">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <span className="text-2xl font-black text-gray-900">₹</span>
+                                                    <input
+                                                        type="number"
+                                                        name="total_amount"
+                                                        value={formData.total_amount}
+                                                        onChange={handleChange}
+                                                        className="w-32 text-3xl font-black text-gray-900 bg-white border border-primary-300 rounded-lg text-center outline-none focus:ring-2 focus:ring-primary-500"
+                                                    />
+                                                </div>
+                                                <div className="text-[10px] text-gray-500 font-medium whitespace-nowrap">
+                                                    Total Remaining: ₹{parseFloat(
+                                                        unpaidFees
+                                                            .filter(f => formData.item_ids.includes(f.id))
+                                                            .reduce((sum, item) => sum + (parseFloat(item.amount) - parseFloat(item.paid_amount || 0)), 0) - parseFloat(formData.total_amount || 0)
+                                                    ).toFixed(2)}
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="text-3xl font-black text-gray-900 mb-1">₹{parseFloat(formData.total_amount).toFixed(2)}</div>
@@ -551,8 +625,16 @@ const Payments = () => {
                                 <div className="flex justify-between"><span>Receipt No:</span><span className="font-bold">{lastCreatedReceipt.receipt_no}</span></div>
                                 <div className="flex justify-between"><span>Date:</span><span>{lastCreatedReceipt.date}</span></div>
                                 <div className="flex justify-between"><span>Student:</span><span className="font-bold">{lastCreatedReceipt.student_details?.name}</span></div>
-                                <div className="flex justify-between"><span>Month:</span><span>{lastCreatedReceipt.month_summary || lastCreatedReceipt.month}</span></div>
-                                <div className="flex justify-between"><span>Fee Type:</span><span>{lastCreatedReceipt.fee_type_summary || lastCreatedReceipt.fee_type_details?.name}</span></div>
+
+                                <div className="border-t border-gray-100 py-2 space-y-1">
+                                    {(lastCreatedReceipt.summarized_items || []).map((item, idx) => (
+                                        <div key={idx} className="flex justify-between">
+                                            <span>{item.category}{item.month_range ? ` (${item.month_range})` : ''}</span>
+                                            <span>₹{parseFloat(item.amount).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
                                 <div className="border-t border-gray-200 pt-2 flex justify-between text-base font-black">
                                     <span>Total:</span><span>₹{parseFloat(lastCreatedReceipt.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
@@ -561,7 +643,7 @@ const Payments = () => {
                             <div className="space-y-3">
                                 <button onClick={() => generateReceiptPDF(lastCreatedReceipt, schoolLogo)} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition shadow-lg">
                                     <Printer size={18} />
-                                    Print Receipt (A4 Portrait)
+                                    Print Receipt (Landscape)
                                 </button>
                                 <button onClick={handleShare} className="w-full flex items-center justify-center gap-2 py-3 bg-primary-600 text-white rounded-xl font-bold hover:bg-primary-700 transition shadow-lg">
                                     <Share2 size={18} />

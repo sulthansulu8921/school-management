@@ -10,7 +10,7 @@ const Header = ({ toggleSidebar }) => {
     const [results, setResults] = useState({ students: [], receipts: [] });
     const [isSearching, setIsSearching] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
-    const { academicYear, setAcademicYear } = useAcademicYear();
+    const { academicYear, setAcademicYear, availableYears, loading: yearsLoading } = useAcademicYear();
     const [showYearDropdown, setShowYearDropdown] = useState(false);
 
     const searchRef = useRef(null);
@@ -195,16 +195,18 @@ const Header = ({ toggleSidebar }) => {
                     </div>
                     {showYearDropdown && (
                         <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-                            {['2023-24', '2024-25', '2025-26'].map(year => (
+                            {yearsLoading ? (
+                                <div className="px-4 py-2 text-xs text-gray-400 font-bold uppercase tracking-widest animate-pulse">Loading...</div>
+                            ) : availableYears.map(year => (
                                 <div
-                                    key={year}
+                                    key={year.id}
                                     onClick={() => {
-                                        setAcademicYear(year);
+                                        setAcademicYear(year.name);
                                         setShowYearDropdown(false);
                                     }}
-                                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${academicYear === year ? 'bg-blue-50 font-bold text-blue-600' : 'text-gray-700'}`}
+                                    className={`px-4 py-2 text-sm cursor-pointer hover:bg-blue-50 transition-colors ${academicYear === year.name ? 'bg-blue-50 font-bold text-blue-600' : 'text-gray-700'}`}
                                 >
-                                    {year}
+                                    {year.name}
                                 </div>
                             ))}
                         </div>

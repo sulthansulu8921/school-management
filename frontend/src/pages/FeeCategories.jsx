@@ -15,6 +15,9 @@ const FeeCategories = () => {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [currentCategory, setCurrentCategory] = useState(null);
+    const [formData, setFormData] = useState({ name: '', description: '' });
 
     useEffect(() => {
         fetchCategories();
@@ -31,6 +34,51 @@ const FeeCategories = () => {
         }
     };
 
+    const handleOpenModal = (category = null) => {
+        if (category) {
+            setCurrentCategory(category);
+            setFormData({ name: category.name, description: category.description || '' });
+        } else {
+            setCurrentCategory(null);
+            setFormData({ name: '', description: '' });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setCurrentCategory(null);
+        setFormData({ name: '', description: '' });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (currentCategory) {
+                await api.put(`payments/fee-categories/${currentCategory.id}/`, formData);
+            } else {
+                await api.post('payments/fee-categories/', formData);
+            }
+            fetchCategories();
+            handleCloseModal();
+        } catch (error) {
+            console.error('Failed to save fee category', error);
+            alert('Failed to save category. Make sure the name is unique.');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm('Are you sure you want to delete this category? This might fail if it is currently in use.')) {
+            try {
+                await api.delete(`payments/fee-categories/${id}/`);
+                fetchCategories();
+            } catch (error) {
+                console.error('Failed to delete fee category', error);
+                alert('Cannot delete category: ' + (error.response?.data?.detail || 'It might be linked to existing payments.'));
+            }
+        }
+    };
+
     const filteredCategories = categories.filter(cat =>
         cat.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -42,7 +90,10 @@ const FeeCategories = () => {
                     <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">Fee Categories</h1>
                     <p className="text-[10px] sm:text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Manage School Fee Structures</p>
                 </div>
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-black text-sm uppercase tracking-wider">
+                <button
+                    onClick={() => handleOpenModal()}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition shadow-lg shadow-blue-100 font-black text-sm uppercase tracking-wider"
+                >
                     <Plus size={18} />
                     <span>Create Category</span>
                 </button>
@@ -122,10 +173,16 @@ const FeeCategories = () => {
                                     </td>
                                     <td className="px-8 py-6">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
+                                            <button
+                                                onClick={() => handleOpenModal(cat)}
+                                                className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                            >
                                                 <Edit2 size={16} />
                                             </button>
-                                            <button className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                            <button
+                                                onClick={() => handleDelete(cat.id)}
+                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
                                                 <Trash2 size={16} />
                                             </button>
                                         </div>
@@ -143,6 +200,51 @@ const FeeCategories = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="px-8 py-6 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="text-xl font-black text-gray-800 tracking-tight">
+                                {currentCategory ? 'Edit Category' : 'Create New Category'}
+                            </h3>
+                            <button onClick={handleCloseModal} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <Plus size={24} className="text-gray-400 rotate-45" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Category Name</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    placeholder="e.g. Tuition Fee, Admission Fee"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                                <textarea
+                                    rows="3"
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    placeholder="Brief details about this fee type..."
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-100"
+                            >
+                                {currentCategory ? 'Update Category' : 'Save Category'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

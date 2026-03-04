@@ -135,7 +135,7 @@ const Dashboard = () => {
                                         cursor={{ fill: 'transparent' }}
                                         contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
                                     />
-                                    <Bar dataKey="collection" name="Collections" radius={[4, 4, 0, 0]} barSize={30} fill="#0d6efd" />
+                                    <Bar dataKey="collection" name="Collections" radius={[4, 4, 0, 0]} barSize={20} fill="#0d6efd" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>

@@ -36,7 +36,7 @@ const RecycleBin = () => {
             await api.post(`payments/receipts/${id}/restore/`);
             fetchDeletedReceipts();
             setConfirmModal({ show: false, receipt: null, action: null });
-            // Optional: toast notification
+            window.dispatchEvent(new Event('payment-updated'));
         } catch (error) {
             console.error('Error restoring receipt', error);
             alert('Failed to restore receipt.');
@@ -48,6 +48,7 @@ const RecycleBin = () => {
             await api.delete(`payments/receipts/${id}/permanent_delete/`);
             fetchDeletedReceipts();
             setConfirmModal({ show: false, receipt: null, action: null });
+            window.dispatchEvent(new Event('payment-updated'));
         } catch (error) {
             console.error('Error permanently deleting receipt', error);
             alert('Failed to delete receipt permanently.');

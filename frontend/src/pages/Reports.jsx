@@ -946,7 +946,7 @@ const PendingReport = ({ filters, academicYear }) => {
                                 <td className="px-6 py-4 text-red-600 font-black text-right">₹{parseFloat(s.pending_amount).toFixed(2)}</td>
                                 <td className="px-6 py-4 text-right no-print">
                                     <button
-                                        onClick={() => navigate(`/payments?studentId=${s.student_id}`)}
+                                        onClick={() => navigate(`/payments?studentId=${s.student_id}&feeIds=${(s.mapping_ids || []).join(',')}`)}
                                         className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition"
                                     >Pay</button>
                                 </td>

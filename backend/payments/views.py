@@ -30,6 +30,16 @@ class StudentFeeMappingViewSet(viewsets.ModelViewSet):
     serializer_class = StudentFeeMappingSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['student', 'is_paid', 'month', 'academic_year']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        ids = self.request.query_params.get('ids')
+        if ids:
+            id_list = [int(x) for x in ids.split(',') if x.isdigit()]
+            if id_list:
+                queryset = queryset.filter(id__in=id_list)
+        return queryset
+    pagination_class = None
 
 from rest_framework.decorators import action
 from rest_framework import status
@@ -101,18 +111,18 @@ class ReceiptViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     @transaction.atomic
     def restore(self, request, pk=None):
-        instance = Receipt.all_objects.get(pk=pk)
-        if not instance.is_deleted:
+        receipt = Receipt.all_objects.get(pk=pk)
+        if not receipt.is_deleted:
             return Response({'error': 'Receipt is not deleted'}, status=status.HTTP_400_BAD_REQUEST)
         
         # Re-apply impact
-        self._apply_receipt_impact_from_items(instance)
+        self._apply_receipt_impact_from_items(receipt)
         
         # Clear deletion metadata
-        instance.is_deleted = False
-        instance.deleted_at = None
-        instance.deleted_by = None
-        instance.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        receipt.is_deleted = False
+        receipt.deleted_at = None
+        receipt.deleted_by = None
+        receipt.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
         
         return Response({'status': 'Receipt restored'})
 
@@ -145,7 +155,7 @@ class ReceiptViewSet(viewsets.ModelViewSet):
             except StudentFeeMapping.DoesNotExist: pass
             
         # Update Collections
-        self._update_collections(instance.date, instance.total_amount, instance.academic_year)
+        self._update_collections(receipt.date, receipt.total_amount, receipt.academic_year)
 
     def _update_collections(self, date_val, amount_val, academic_year):
         from datetime import date
